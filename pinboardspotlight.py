@@ -5,12 +5,27 @@ import dateutil.parser
 import plistlib
 import subprocess
 import sys
+import ConfigParser
+import os
 
-uname = 'LachmanBhatia'
-pword = 'cuYA.TCriM(q9cF9+Vm2Fp2aG'
+configPath = os.path.join(os.path.dirname(os.path.abspath(__file__)),'config.cfg')
+
+config = ConfigParser.ConfigParser()
+try:
+	config.read(configPath)
+except Exception, e:
+	print 'Error | Unable to read configuration file.'
+	exit() 
+print config
+print config.sections()
+
+uname = config.get('PinboardCredentials','Username')
+pword = config.get('PinboardCredentials','Password')
+dbpath = config.get('Paths','DatabasePath')
+weblocPath = config.get('Paths','weblocPath')
 url = 'https://%s:%s@api.pinboard.in/v1/posts/all?format=json' % (uname, pword)
-dbpath = '/Users/alanduncan/torrential/web/pinboardsync.db'
-weblocPath = '/Users/alanduncan/torrential/web'
+
+print dbpath
 
 try:
 	conn = sqlite3.connect(dbpath)
