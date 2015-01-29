@@ -6,7 +6,8 @@ import plistlib
 import subprocess
 import sys
 
-
+uname = 'LachmanBhatia'
+pword = 'cuYA.TCriM(q9cF9+Vm2Fp2aG'
 url = 'https://%s:%s@api.pinboard.in/v1/posts/all?format=json' % (uname, pword)
 dbpath = '/Users/alanduncan/torrential/web/pinboardsync.db'
 weblocPath = '/Users/alanduncan/torrential/web'
