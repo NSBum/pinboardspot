@@ -10,11 +10,12 @@ I use Pinboard almost exclusively to bookmark interesting places on the web beca
 
 **Create a configuration file**: You need to specify paths and Pinboard credentials in a configuration file which has the following format:
 
-`[PinboardCredentials]`
-`Username:` _your pinboard user name_
-`Password:` _your pinboard password_
+```shell
+[PinboardCredentials]
+Username: # your Pinboard username
+Password: # your Pinboard password
 
-`[Paths]`
-`DatabasePath:` _path to the sync database_
-`WeblocPath:` _path to the directory where .webloc files are stored_
-
+[Paths]
+DatabasePath: # path to sync database file
+WeblocPath: # path to webloc directory
+```
