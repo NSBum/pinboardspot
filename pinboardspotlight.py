@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 import json
 import urllib
 import sqlite3
@@ -7,6 +10,7 @@ import subprocess
 import sys
 import ConfigParser
 import os
+from pprint import pprint
 
 configPath = os.path.join(os.path.dirname(os.path.abspath(__file__)),'config.cfg')
 
@@ -25,12 +29,21 @@ dbpath = config.get('Paths','DatabasePath')
 weblocPath = config.get('Paths','weblocPath')
 url = 'https://%s:%s@api.pinboard.in/v1/posts/all?format=json' % (uname, pword)
 
-print dbpath
+def sanitizeName(name):
+	name = ''.join([i if ord(i) < 128 else '' for i in name])
+	name = name.replace('\'','')
+	name = name.replace('/','')
+	name = (name[:30]) if len(name) > 30 else name
+	return name
+
+def sanitizeTags(t):
+	return ''.join([i if ord(i) < 128 else '' for i in t])
 
 try:
 	conn = sqlite3.connect(dbpath)
+	conn.row_factory = sqlite3.Row
 except Exception, e:
-	print 'Error: Unable to connect to pinboardsync db.'
+	print 'Error: Unable to connec to pinboardsync db.'
 	exit()
 else:
 	print "Connected to db"
@@ -38,12 +51,12 @@ finally:
 	pass
 
 #	do we have the right table?
-tableSQL = "SELECT tbl_name FROM sqlite_master WHERE type='table'"
+tableSQL = "SELECT tbl_name AS tableName FROM sqlite_master WHERE type='table'"
 cursor = conn.cursor()
 found = False
 cursor.execute(tableSQL)
 for row in cursor.fetchall():
-	if row[0] == 'pins':
+	if row["tableName"] == 'pins':
 		found = True
 
 if found != True:
@@ -63,18 +76,17 @@ else:
 finally:
 	pass
 
+hashes = []
 for info in returnJSON:
 	h = info['hash'].encode('utf-8')
+	hashes.append(h)
+
 	dateStr = info['time']
 	href = info['href'].encode('utf-8')
 	dt = dateutil.parser.parse(dateStr)
 	epoch = int(dt.strftime('%s'))
-	tags = info['tags'].encode('utf-8')
-	name = info['extended'].encode('utf-8').replace('\"','')
-	name = name.replace('\'','')
-	name = name.replace('/','')
-	# info = (data[:75] + '..') if len(data) > 75 else data
-	name = (name[:30]) if len(name) > 30 else name
+	tags = sanitizeTags(info['tags'])
+	name = sanitizeName(info['extended'])
 	tagList = tags.split()
 
 	#	does this tag already exist in the database?
@@ -82,7 +94,7 @@ for info in returnJSON:
 	cursor.execute(checkHashStmt)
 	result = cursor.fetchone()
 	if result[0] == 0:
-		# print '''%s | %s | %d | %s''' % (h,href,int(epoch),tags)
+		print '''%s | %s | %d | %s''' % (h,href,int(epoch),tags)
 		insertStm = '''INSERT INTO pins (hash, href, date, tags, name) VALUES ("%s", "%s", %d, "%s", '%s')''' % (h,href,epoch,tags,name)
 		conn.execute(insertStm)
 		conn.commit()
@@ -101,12 +113,31 @@ for info in returnJSON:
 	else:
 		#	check for any changes
 		chgStmt = '''SELECT * FROM pins WHERE hash = "%s"''' % h
+		print chgStmt
 		cursor.execute(chgStmt)
 		result = cursor.fetchone()
 		if result[2] != epoch:
+			print '''UPDATE | item with hash %s''' % h
 			alterStmt = '''UPDATE pins SET href = "%s", date = "%d", tags = "%s", name = "%s"''' % (href, epoch, tags,name)
 			conn.execute(alterStmt)
 			conn.commit()
+
+#	deal with deletions
+
+findHashStmt = '''SELECT hash,name FROM pins'''
+cursor.execute(findHashStmt)
+localItems = cursor.fetchall()
+localHashList = [r["hash"] for r in localItems]
+for h in set(localHashList).difference(hashes):
+	#	this is an item to remove
+	deleteStmt = '''DELETE FROM pins WHERE hash = "%s"''' % hsh
+	conn.execute(deleteStmt)
+	conn.commit()
+	#	remove local file
+	name = (item for item in localItems if item["hash"] == h).next()["name"]
+	fn = '''%s/%s.webloc''' % (weblocPath,name)
+	os.remove(fn)
+	print '''NOTE | Deleted item %s''' % h
 conn.close()
 
 
