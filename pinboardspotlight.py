@@ -8,39 +8,40 @@ import dateutil.parser
 import plistlib
 import subprocess
 import sys
-import ConfigParser
 import os
 from pprint import pprint
+import argparse
+import shlex
+import re
 
-configPath = os.path.join(os.path.dirname(os.path.abspath(__file__)),'config.cfg')
+parser = argparse.ArgumentParser(description='Pinboard Spotlight Sync')
+parser.add_argument('-u','--user',help = 'Pinboard user name', required = True)
+parser.add_argument('-p','--password',help = 'Pinboard Password', required = True)
+parser.add_argument('-d','--database', help = 'Path to database', required = False)
+parser.add_argument('-w','--webloc', help = 'Path to webloc file storage', required = True)
+args = vars(parser.parse_args())
+pprint(args)
 
-config = ConfigParser.ConfigParser()
-try:
-	config.read(configPath)
-except Exception, e:
-	print 'Error | Unable to read configuration file.'
-	exit() 
-print config
-print config.sections()
+if args['database'] == None:
+	args['database'] = os.path.dirname(os.path.abspath(__file__))
 
-uname = config.get('PinboardCredentials','Username')
-pword = config.get('PinboardCredentials','Password')
-dbpath = config.get('Paths','DatabasePath')
-weblocPath = config.get('Paths','weblocPath')
-url = 'https://%s:%s@api.pinboard.in/v1/posts/all?format=json' % (uname, pword)
+url = 'https://%s:%s@api.pinboard.in/v1/posts/all?format=json' % (args['user'].strip(), args['password'].strip())
 
 def sanitizeName(name):
 	name = ''.join([i if ord(i) < 128 else '' for i in name])
+	name = re.sub("['\"\\.\\/\\\\\\s]+", "_", name)
 	name = name.replace('\'','')
 	name = name.replace('/','')
+	name = name.replace(' ','_')
+	name = name.replace('"','')
 	name = (name[:30]) if len(name) > 30 else name
-	return name
+	return name.strip()
 
 def sanitizeTags(t):
-	return ''.join([i if ord(i) < 128 else '' for i in t])
+	return ''.join([i if ord(i) < 128 else '' for i in t]).strip()
 
 try:
-	conn = sqlite3.connect(dbpath)
+	conn = sqlite3.connect(args['database'].strip())
 	conn.row_factory = sqlite3.Row
 except Exception, e:
 	print 'Error: Unable to connec to pinboardsync db.'
@@ -101,7 +102,8 @@ for info in returnJSON:
 
 		#	since this is a new entry, create a webloc file for it
 		#	plistlib.dump(value, fp, *, fmt=FMT_XML, sort_keys=True, skipkeys=False)
-		fn = '''%s/%s.webloc''' % (weblocPath,name)
+		fn = '''%s/%s.webloc''' % (args['webloc'].strip(),name)
+		print fn
 		#fileobj = open(fn,'wb')
 		plistDict = {}
 		plistDict["URL"] = href
@@ -109,7 +111,8 @@ for info in returnJSON:
 
 		#	tag the files
 		tagList = ','.join(map(str, tagList))
-		subprocess.call(["tag","--add",tagList,fn])
+		tagcmd = '''/usr/local/bin/tag --add %s %s''' % (tagList, fn)
+		subprocess.call(shlex.split(tagcmd))
 	else:
 		#	check for any changes
 		chgStmt = '''SELECT * FROM pins WHERE hash = "%s"''' % h
@@ -135,7 +138,7 @@ for h in set(localHashList).difference(hashes):
 	conn.commit()
 	#	remove local file
 	name = (item for item in localItems if item["hash"] == h).next()["name"]
-	fn = '''%s/%s.webloc''' % (weblocPath,name)
+	fn = '''%s/%s.webloc''' % (args['webloc'].strip(),name)
 	os.remove(fn)
 	print '''NOTE | Deleted item %s''' % h
 conn.close()
