@@ -6,16 +6,19 @@ I use Pinboard almost exclusively to bookmark interesting places on the web beca
 
 ### Usage ###
 
-**Install `tag`**: The Python script makes use of a command line application to apply OS X tags to the local bookmarks. You will need to install [`tag`](https://github.com/jdberry/tag) to us this script. I would install it using [Homebrew](http://brew.sh): `brew install tag`.
+1. Install `tag`
 
-**Create a configuration file**: You need to specify paths and Pinboard credentials in a configuration file which has the following format:
+The Python script makes use of a command line application to apply OS X tags to the local bookmarks. You will need to install [`tag`](https://github.com/jdberry/tag) to us this script. I would install it using [Homebrew](http://brew.sh): `brew install tag`.
 
-```shell
-[PinboardCredentials]
-Username: # your Pinboard username
-Password: # your Pinboard password
+2. Calling the script
 
-[Paths]
-DatabasePath: # path to sync database file
-WeblocPath: # path to webloc directory
-```
+You will need to supply at least the following arguments:
+
+`-u, --user`		Your Pinboard user name
+`-p, --password`	Your Pinboard password
+`-w, --webloc`		The path on your filesystem where the webloc files will be stored
+
+Optionally, you can specify the path to the sqlite3 database that the script uses.
+
+`-d, --database`	The path on your filesystem where the sqlite3 database is stored
+
